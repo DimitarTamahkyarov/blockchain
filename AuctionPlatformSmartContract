@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.24;
+
+contract AuctionPlatform {
+
+    struct Auction {
+        address creator;
+        uint startTime;
+        uint endTime;
+        string itemName;
+        string itemDescription;
+        uint itemMinPrice;
+        uint highestBid;
+        bool isFinished;
+    }
+
+    modifier onlyNotFinished(uint id) {
+        if(auctions[id].isFinished) {
+            revert("The auction is finished");
+        }
+        _;
+    }
+
+    uint private auctionId = 0;
+    mapping(uint => Auction) public auctions;
+    mapping(address => uint) private availableToWithdrawal;
+
+    event NewAuction(
+        address indexed creator,
+        uint startTime,
+        uint endTime,
+        string itemName,
+        string itemDescription,
+        uint itemMinPrice,
+        uint highestBid,
+        bool isFinished);
+
+    event NewBid(uint indexed auctionId, uint amount);
+
+    function createAuction(
+        uint startTime, 
+        uint endTime, 
+        string memory itemName, 
+        string memory itemDescription, 
+        uint itemStartPrice) 
+    public 
+    {
+
+        uint duration = endTime - startTime;
+        if (startTime < block.timestamp || duration <= 0) {
+            revert("Incorect data");
+        }
+
+        auctions[++auctionId] = Auction(msg. sender, startTime, endTime, itemName, itemDescription, itemStartPrice, 0, false);
+        emit NewAuction(msg. sender, startTime, endTime, itemName, itemDescription, itemStartPrice, 0, false);
+    }
+
+    function placeBid(uint id, uint amount) 
+    public
+    payable 
+    onlyNotFinished(id)
+    {
+        if (amount <= auctions[id].highestBid || amount < auctions[id].itemMinPrice) {
+            revert("Not valid bid");
+        }
+
+        if (auctions[id].highestBid != 0) {
+            availableToWithdrawal[msg.sender] = amount;
+        }
+
+        auctions[id].highestBid = amount;
+        emit NewBid(id, amount);
+
+    }
+
+    function finalizeAuction(uint id) 
+    public 
+    onlyNotFinished(id)
+    {
+        if (auctions[id].endTime >= block.timestamp) {
+            auctions[id].isFinished = true;
+        }
+
+
+    }
+
+}

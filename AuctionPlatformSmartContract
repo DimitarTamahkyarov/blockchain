@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 contract AuctionPlatform {
 
     struct Auction {
-        address creator;
+        address payable creator;
         uint startTime;
         uint endTime;
         string itemName;
@@ -37,6 +37,7 @@ contract AuctionPlatform {
 
     event NewBid(uint indexed auctionId, uint amount);
 
+
     function createAuction(
         uint startTime, 
         uint endTime, 
@@ -51,15 +52,17 @@ contract AuctionPlatform {
             revert("Incorect data");
         }
 
-        auctions[++auctionId] = Auction(msg. sender, startTime, endTime, itemName, itemDescription, itemStartPrice, 0, false);
+        auctions[++auctionId] = Auction(payable(msg.sender), startTime, endTime, itemName, itemDescription, itemStartPrice, 0, false);
         emit NewAuction(msg. sender, startTime, endTime, itemName, itemDescription, itemStartPrice, 0, false);
     }
 
-    function placeBid(uint id, uint amount) 
+
+    function placeBid(uint id) 
     public
     payable 
     onlyNotFinished(id)
     {
+        uint amount = msg.value;
         if (amount <= auctions[id].highestBid || amount < auctions[id].itemMinPrice) {
             revert("Not valid bid");
         }
@@ -70,8 +73,8 @@ contract AuctionPlatform {
 
         auctions[id].highestBid = amount;
         emit NewBid(id, amount);
-
     }
+
 
     function finalizeAuction(uint id) 
     public 
@@ -81,7 +84,21 @@ contract AuctionPlatform {
             auctions[id].isFinished = true;
         }
 
-
+        if (auctions[id].highestBid > 0) {
+            auctions[id].creator.transfer(auctions[id].highestBid);
+        }
     }
 
+
+    function withdraw() 
+    public 
+    {
+        if (availableToWithdrawal[msg.sender] == 0) {
+            revert("Nothing for you");
+        }
+
+        payable(msg.sender).transfer(availableToWithdrawal[msg.sender]);
+
+        availableToWithdrawal[msg.sender] = 0;
+    }
 }
